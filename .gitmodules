@@ -1,0 +1,3 @@
+[submodule "input_proc/buildtools"]
+	path = input_proc/buildtools
+	url = https://github.com/Steveice10/buildtools
