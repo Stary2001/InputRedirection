@@ -12,6 +12,9 @@
 // 11.0 HID
 #define HID_PATCH1_LOC 0x101de0
 #define HID_PATCH2_LOC 0x107acc
+#define HID_PATCH3_LOC 0x104A5C
+//#define HID_PATCH3_LOC 0x104a60
+#define HID_CAVE_LOC   0x1094B8
 
 extern void shit();
 extern u32 shit_end;
@@ -113,11 +116,12 @@ void killCache()
 
 int main()
 {
+	sdmcInit();
 	gfxInitDefault();
 
 	consoleInit(GFX_BOTTOM, NULL);
 
-	printf("about to do fun shit\n");
+	printf("injecting into hid..\n");
 
 	Handle self = open_current_process();
 
@@ -205,6 +209,7 @@ int main()
 		gfxSwapBuffers();
 	}
 
+	sdmcExit();
 	// Exit services
 	gfxExit();
 	return 0;

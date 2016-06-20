@@ -1,0 +1,10 @@
+*.smdh
+*.3dsx
+*.elf
+*.cia
+*.zip
+*.o
+*.d
+InputProc/output
+InputProc/build
+injector/build
