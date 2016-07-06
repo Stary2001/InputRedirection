@@ -5,6 +5,6 @@
 *.zip
 *.o
 *.d
-InputProc/output
-InputProc/build
+input_proc/output
+input_proc/build
 injector/build
