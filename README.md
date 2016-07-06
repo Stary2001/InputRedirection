@@ -1,3 +1,8 @@
+# limitations
+right now, this only redirects the HID registers - no touchscreen, circle pad, c-stick... etc
+
+## greetings
+
 i stole some mmeory patching code from bootntr, pls dont kill me cell9
 
 also abused steveice's buildtools
