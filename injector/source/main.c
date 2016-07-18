@@ -12,9 +12,9 @@
 // 11.0 HID
 #define HID_PATCH1_LOC 0x101de0
 #define HID_PATCH2_LOC 0x107acc
-#define HID_PATCH3_LOC 0x104A5C
-//#define HID_PATCH3_LOC 0x104a60
+#define HID_PATCH3_LOC 0x104a60
 #define HID_CAVE_LOC   0x1094B8
+#define HID_DAT_LOC	   0x10dffc
 
 extern void shit();
 extern u32 shit_end;
@@ -114,6 +114,40 @@ void killCache()
 	svcBackdoor(killCache_k);
 }
 
+u32 branch(u32 base, u32 target)
+{
+	s32 off = (s32)(target - base);
+	off -= 8; // arm is 2 instructions ahead (8 bytes)
+	off /= 4; // word offset vs byte offset
+
+	u32 ins = 0xea000000; // branch without link
+	ins |= *(u32*)&off;
+	return ins;
+}
+
+Handle target;
+Handle self;
+
+void hook(u32 loc, u32 storage, u32 *hook_code, u32 hook_len)
+{
+	if(protect_remote_memory(target, (void*)(storage & (~0xfff)), 0x1000) != 0)
+	{
+		printf("patch 4 prot failed\n");
+	}
+
+	if(copy_remote_memory(target, (void*)storage, self, hook_code, hook_len) != 0)
+	{
+		printf("patch 4 copy failed\n");
+	}
+
+	u32 br = branch(loc, storage);
+
+	if(copy_remote_memory(target, (void*)loc, self, &br, 4) != 0)
+	{
+		printf("patch 3 copy failed\n");
+	}
+}
+
 int main()
 {
 	sdmcInit();
@@ -123,24 +157,22 @@ int main()
 
 	printf("injecting into hid..\n");
 
-	Handle self = open_current_process();
+	self = open_current_process();
 
-	u8 *buff = malloc(1024);
-	memset(buff, 0, 1024);
+	u32 new_loc = HID_DAT_LOC;
 
-	u32 new_loc = 0x0010dffc;
+	target = open_process(HID_PID);
 
-	Handle target = open_process(HID_PID);
+	u32 test = 0;
 
-	memset(buff, 0, 1024);
-	Result r = copy_remote_memory(self, buff, target, (void*)new_loc, 4);
+	Result r = copy_remote_memory(self, &test, target, (void*)new_loc, 4);
 	if(r != 0)
 	{
 		printf("copy returned %08lx\n", r);
 		exit(0);
 	}
 
-	if(*(u32*)buff != 0)
+	if(test != 0)
 	{
 		printf("!!!!!!\n");
 	}
@@ -172,6 +204,20 @@ int main()
 		{
 			printf("patch 2 copy failed\n");
 		}
+
+		if(protect_remote_memory(target, (void*)(HID_PATCH3_LOC & (~0xfff)), 0x1000) != 0)
+		{
+			printf("patch 2 prot failed\n");
+		}
+
+		u32 code[] =
+		{
+			0xE59F0000,
+			0xE8BD8070,
+			0xDEADBEEF
+		};
+
+		hook(HID_PATCH3_LOC, HID_CAVE_LOC, code, sizeof(code));
 
 		printf("hid done\n");
 	
