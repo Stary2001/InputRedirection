@@ -1,4 +1,4 @@
-#include <3ds.h>
+	#include <3ds.h>
 #include <stdio.h>
 #include <string>
 #include <string.h>
@@ -96,7 +96,10 @@ u32 open_process(u32 pid)
 	return hProcess;
 }
 
-u32 b = 0;
+u32 hid_in = 0;
+u32 circle_in = 0xffffffff;
+u32 ts_in = 0xffffffff;
+
 FILE *log_file;
 
 void thread_fun(void* a)
@@ -143,9 +146,15 @@ void thread_fun(void* a)
 			break;
 		}
 
-		if(byte_count >= 4)
+		if(byte_count >= 12)
 		{
-			b = *(u32*)buf;
+			//fprintf(log_file, "got stuff!");
+			u32 *b = (u32*)buf;
+			hid_in = b[0];
+			circle_in = b[1];
+			ts_in = b[2];
+			//fprintf(log_file, "hid: %08lx, circle: %08lx, ts: %08lx\n", b[0], b[1], b[2]);
+			//fflush(log_file);
 		}
 	}
 
@@ -155,25 +164,47 @@ void thread_fun(void* a)
 
 int main(int argc, const char* argv[])
 {
-/*	sdmcInit();
+	/*sdmcInit();
 	log_file = fopen("service_log.log", "a");
 
 	fprintf(log_file, "thread\n");
 	fflush(log_file);*/
 
 	Thread t = threadCreate(thread_fun, 0, 0x1000, 0x18, 0, false);
-	/*fprintf(log_file, "t\n");
-	fflush(log_file);*/
 
 	Handle hid = open_process(0x10);
 	Handle self = open_current_process();
-	u32 loc = 0x0010dffc;
+	u32 hid_loc = 0x0010df00;
+	u32 ts_rd_loc = 0x0010df08;
+	u32 ts_wr_loc = 0x0010df10;
+
 	while(true)
 	{
-		u32 a;
-		copy_remote_memory(self, &a, hid, (void*)0x1ec46000, 4);
-		a &= ~b; // Clear the bits set in B.
-		copy_remote_memory(hid, (void*)loc, self, &a, 4);
+		u32 orig_hid;
+		u32 orig_ts_and_circle[2];
+
+		copy_remote_memory(self, &orig_hid, hid, (void*)0x1ec46000, 4);
+		copy_remote_memory(self, &orig_ts_and_circle, hid,  (void*)ts_wr_loc, 8);
+
+		//int raw_x = (orig_ts_and_circle[1] & 0xfff) - 2048;
+		//int raw_y = ((orig_ts_and_circle[1] & 0xfff000) >> 12) - 2048;
+
+		//fprintf(log_file, "ts; %08lx, circle: %i %i\n", orig_ts_and_circle[0], raw_x, raw_y);
+		//fflush(log_file);
+
+		if(ts_in != 0xFFFFFFFF)
+		{
+			orig_ts_and_circle[0] = ts_in;
+		}
+
+		if(circle_in != 0xFFFFFFFF)
+		{
+			orig_ts_and_circle[1] = circle_in;
+		}
+
+		orig_hid &= ~hid_in; // Clear the bits set in B.
+		copy_remote_memory(hid, (void*)hid_loc, self, &orig_hid, 4);
+		copy_remote_memory(hid, (void*)ts_rd_loc, self, &orig_ts_and_circle, 8);
 	}
 
 	threadJoin(t, U64_MAX);

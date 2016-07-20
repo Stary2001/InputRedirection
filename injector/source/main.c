@@ -12,9 +12,12 @@
 // 11.0 HID
 #define HID_PATCH1_LOC 0x101de0
 #define HID_PATCH2_LOC 0x107acc
-#define HID_PATCH3_LOC 0x104a60
+#define HID_PATCH3_LOC 0x106a74
 #define HID_CAVE_LOC   0x1094B8
-#define HID_DAT_LOC	   0x10dffc
+
+#define HID_DAT_LOC	   0x10df00
+#define HID_TS_RD_LOC 0x10df04
+#define HID_TS_WR_LOC 0x10df08
 
 extern void shit();
 extern u32 shit_end;
@@ -148,6 +151,9 @@ void hook(u32 loc, u32 storage, u32 *hook_code, u32 hook_len)
 	}
 }
 
+void hid_inject();
+u32 hid_inject_end;
+
 int main()
 {
 	sdmcInit();
@@ -210,14 +216,7 @@ int main()
 			printf("patch 2 prot failed\n");
 		}
 
-		u32 code[] =
-		{
-			0xE59F0000,
-			0xE8BD8070,
-			0xDEADBEEF
-		};
-
-		hook(HID_PATCH3_LOC, HID_CAVE_LOC, code, sizeof(code));
+		hook(HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&hid_inject, ((u32)&hid_inject_end - (u32)&hid_inject) + 8);
 
 		printf("hid done\n");
 	
