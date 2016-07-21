@@ -1,14 +1,11 @@
 # limitations
-right now, this only redirects the HID registers - no touchscreen, circle pad, c-stick... etc
+the controller program doesn't have touchscreen yet
+i don't hook the IR service, so no zl/zr or c-stick
 
-## greetings
-
-i stole some mmeory patching code from bootntr, pls dont kill me cell9
-
-also abused steveice's buildtools
-
-shinyquagsire is cool too with a neat writeup that i also used
-([link here](http://douevenknow.us/post/139673444953/redirecting-3ds-input-over-wifi))
+## credits and stuff
+Memory patching code taken from BootNTR
+Steveice10's buildtools used to build input_proc
+Shinyquagsire for inspiring me to start this with his writeup, then helping me along the way
 
 ## note
 buildtools requires a 1 line patch for the input redirector cia to work best:

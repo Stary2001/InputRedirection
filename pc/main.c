@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#define JOY_DEADZONE 1000
+
 #define BIT(n) (1U<<(n))
 
 enum
@@ -109,7 +111,7 @@ int main(int argc, char ** argv)
 	}
 
 	SDL_Window *win = SDL_CreateWindow("sdl thing", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 160, 144, 0);
-	SDL_Renderer *sdlRenderer = SDL_CreateRenderer(win, -1, 0);
+	SDL_Renderer *sdlRenderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
 
 	SDL_Texture *screen_tex = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 160, 144);
 	SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
@@ -136,6 +138,11 @@ int main(int argc, char ** argv)
 				case SDL_JOYAXISMOTION:
 				{
 					int16_t v = ev.jaxis.value;
+					if(abs(v) < JOY_DEADZONE)
+					{
+						v = 0;
+					}
+
 					if(ev.jaxis.axis == 0)
 					{
 						circle_x = v;
@@ -152,8 +159,6 @@ int main(int argc, char ** argv)
 					{
 						printf("unk axis %i val %i\n", ev.jaxis.axis, ev.jaxis.value);
 					}
-
-					send_frame();
 				}
 				break;
 
@@ -174,7 +179,6 @@ int main(int argc, char ** argv)
 							printf("unk button up %i\n", b);
 						break;
 					}
-					send_frame();
 				}
 				break;
 
@@ -195,7 +199,6 @@ int main(int argc, char ** argv)
 							printf("unk button up %i\n", b);
 						break;
 					}
-					send_frame();
 				}
 				break;
 
@@ -206,7 +209,6 @@ int main(int argc, char ** argv)
 					set(KEY_DDOWN, v & SDL_HAT_DOWN);
 					set(KEY_DLEFT, v & SDL_HAT_LEFT);
 					set(KEY_DRIGHT, v & SDL_HAT_RIGHT);
-					send_frame();
 				}
 				break;
 
@@ -218,6 +220,8 @@ int main(int argc, char ** argv)
 				break;
 			}
 		}
+
+		send_frame();
 
 		SDL_RenderClear(sdlRenderer);
 		SDL_RenderPresent(sdlRenderer);
