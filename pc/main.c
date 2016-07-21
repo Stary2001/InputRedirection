@@ -54,9 +54,23 @@ uint32_t touch_state = 0xffffffff;
 void send_frame()
 {
 	char v[12];
-	uint32_t circle_state = ((circle_x + 32768) / 16) | (((circle_y + 32768) / 16) << 12);
+	uint32_t circle_state = 0xffffffff;
+	if(circle_x != 0 || circle_y != 0)
+	{
+		// we use floating point here becuase muh precision
+		double x = (double)circle_x / 32768;
+		x *= 0x5d0;
+		double y = (double)circle_y / 32768;
+		y *= 0x5d0;
+		x += 2048;
+		y += 2048;
+		uint32_t x_i = (uint32_t)x;
+		uint32_t y_i = (uint32_t)y;
+
+		circle_state = x_i | (y_i << 12);
+	}
 	// -32k - 32k -> 0-65k
-	// 0-65k -> 0-4096
+	// 0-65k -> -0x890 - 0x890
 	// 00YYYXXX
 
     static int sock = 0;

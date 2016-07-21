@@ -164,11 +164,8 @@ void thread_fun(void* a)
 
 int main(int argc, const char* argv[])
 {
-	/*sdmcInit();
-	log_file = fopen("service_log.log", "a");
-
-	fprintf(log_file, "thread\n");
-	fflush(log_file);*/
+	sdmcInit();
+	log_file = fopen("service_log.log", "w");
 
 	Thread t = threadCreate(thread_fun, 0, 0x1000, 0x18, 0, false);
 
@@ -186,11 +183,11 @@ int main(int argc, const char* argv[])
 		copy_remote_memory(self, &orig_hid, hid, (void*)0x1ec46000, 4);
 		copy_remote_memory(self, &orig_ts_and_circle, hid,  (void*)ts_wr_loc, 8);
 
-		//int raw_x = (orig_ts_and_circle[1] & 0xfff) - 2048;
-		//int raw_y = ((orig_ts_and_circle[1] & 0xfff000) >> 12) - 2048;
+		int raw_x = (orig_ts_and_circle[1] & 0xfff) - 2048;
+		int raw_y = ((orig_ts_and_circle[1] & 0xfff000) >> 12) - 2048;
 
-		//fprintf(log_file, "ts; %08lx, circle: %i %i\n", orig_ts_and_circle[0], raw_x, raw_y);
-		//fflush(log_file);
+		fprintf(log_file, "raw circle: %08lx, circle: %i %i\n", orig_ts_and_circle[1], raw_x, raw_y);
+		fflush(log_file);
 
 		if(ts_in != 0xFFFFFFFF)
 		{
