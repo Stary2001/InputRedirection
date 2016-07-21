@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #define JOY_DEADZONE 1000
+#define CPAD_BOUND 0x5d0
 
 #define BIT(n) (1U<<(n))
 
@@ -49,55 +50,60 @@ enum
 int16_t circle_x = 0;
 int16_t circle_y = 0;
 uint32_t hid_buttons = 0;
-uint32_t touch_state = 0xffffffff;
+
+int8_t touching = 0;
+int16_t touch_x = 0;
+int16_t touch_y = 0;
+
+int sock_fd = 0;
+struct sockaddr_in sock_addr;
+
+int connect_to_3ds(const char *addr)
+{
+	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    struct hostent *server;
+    server = gethostbyname(addr);
+    if(server == NULL)
+    {
+    	return 0;
+    }
+    memset(&sock_addr, 0, sizeof(sock_addr));
+    sock_addr.sin_family = AF_INET;
+    memcpy(&sock_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+    sock_addr.sin_port = htons(4950);
+
+    return 1;
+}
 
 void send_frame()
 {
 	char v[12];
 	uint32_t circle_state = 0xffffffff;
-	if(circle_x != 0 || circle_y != 0)
+	uint32_t touch_state = 0xffffffff;
+	if(circle_x != 0 || circle_y != 0) // Do circle magic. 0x5d0 is the upper/lower bound of circle pad input
 	{
-		// we use floating point here becuase muh precision
-		double x = (double)circle_x / 32768;
-		x *= 0x5d0;
-		double y = (double)circle_y / 32768;
-		y *= 0x5d0;
-		x += 2048;
-		y += 2048;
-		uint32_t x_i = (uint32_t)x;
-		uint32_t y_i = (uint32_t)y;
-
-		circle_state = x_i | (y_i << 12);
+		uint32_t x = circle_x;
+		uint32_t y = circle_y;
+		x = ((x * CPAD_BOUND) / 32768) + 2048;
+		y = ((y * CPAD_BOUND) / 32768) + 2048;
+		circle_state = x | (y << 12);
 	}
-	// -32k - 32k -> 0-65k
-	// 0-65k -> -0x890 - 0x890
-	// 00YYYXXX
 
-    static int sock = 0;
-    static struct sockaddr_in saddr;
+	if(touching) // This is good enough.
+	{
+		uint32_t x = touch_x;
+		uint32_t y = touch_y;
+		x = (x * 4096) / 320;
+		y = (y * 4096) / 240;
+		touch_state = x | (y << 12) | (0x01 << 24);
+	}
 
-    if(sock == 0)
-    {
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
-
-        struct hostent *server;
-        server = gethostbyname("192.168.0.2");
-        bzero((char *) &saddr, sizeof(saddr));
-        saddr.sin_family = AF_INET;
-        bcopy((char *)server->h_addr, 
-          (char *)&saddr.sin_addr.s_addr, server->h_length);
-        saddr.sin_port = htons(4950);
-
-    }
     memcpy(v, &hid_buttons, 4);
     memcpy(v + 4, &circle_state, 4);
     memcpy(v + 8, &touch_state, 4);
 
-    printf("hid: %08lx\n", hid_buttons);
-    printf("circle: %08lx\n", circle_state);
-    printf("ts: %08lx\n", touch_state);
-
-    int i = sendto(sock, v, 12, 0, (struct sockaddr*)&saddr, sizeof(struct sockaddr_in));
+    int i = sendto(sock_fd, v, 12, 0, (struct sockaddr*)&sock_addr, sizeof(struct sockaddr_in));
 }
 
 void set(uint32_t a, uint32_t b)
@@ -114,6 +120,18 @@ void set(uint32_t a, uint32_t b)
 
 int main(int argc, char ** argv)
 {
+	if(argc < 2)
+	{
+		printf("usage: %s [ip]\n", argv[0]);
+		return 1;
+	}
+
+	if(!connect_to_3ds(argv[1]))
+	{
+		printf("failed to connect to '%s'!\n", argv[1]);
+		return 1;
+	}
+
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
 
 	printf("%i detected\n", SDL_NumJoysticks());
@@ -124,7 +142,7 @@ int main(int argc, char ** argv)
 		return 0;
 	}
 
-	SDL_Window *win = SDL_CreateWindow("sdl thing", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 160, 144, 0);
+	SDL_Window *win = SDL_CreateWindow("sdl thing", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 320, 240, 0);
 	SDL_Renderer *sdlRenderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
 
 	SDL_Texture *screen_tex = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 160, 144);
@@ -224,6 +242,23 @@ int main(int argc, char ** argv)
 					set(KEY_DLEFT, v & SDL_HAT_LEFT);
 					set(KEY_DRIGHT, v & SDL_HAT_RIGHT);
 				}
+				break;
+
+				case SDL_MOUSEBUTTONDOWN:
+					touching = 1;
+					touch_x = ev.button.x;
+					touch_y = ev.button.y;
+				break;
+
+				case SDL_MOUSEMOTION:
+					touch_x = ev.motion.x;
+					touch_y = ev.motion.y;
+				break;
+
+				case SDL_MOUSEBUTTONUP:
+					touching = 0;
+					touch_x = 0;
+					touch_y = 0;
 				break;
 
 				case SDL_KEYDOWN:
