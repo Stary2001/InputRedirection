@@ -1,4 +1,5 @@
-	#include <3ds.h>
+#include <3ds.h>
+#include <3ds/services/apt.h>
 #include <stdio.h>
 #include <string>
 #include <string.h>
@@ -100,9 +101,11 @@ u32 hid_in = 0;
 u32 circle_in = 0xffffffff;
 u32 ts_in = 0xffffffff;
 
+bool run = true;
+
 FILE *log_file;
 
-void thread_fun(void* a)
+void input_loop(void* a)
 {
 	acInit();
 	u32 *sockbuf = (u32*)memalign(0x1000, 0x10000);
@@ -138,7 +141,7 @@ void thread_fun(void* a)
 		return;
 	}
 
-	while(true)
+	while(run)
 	{
 		byte_count = recv(sockfd, buf, sizeof buf, 0);
 		if(byte_count == -1)
@@ -148,13 +151,10 @@ void thread_fun(void* a)
 
 		if(byte_count >= 12)
 		{
-			//fprintf(log_file, "got stuff!");
 			u32 *b = (u32*)buf;
 			hid_in = b[0];
 			circle_in = b[1];
 			ts_in = b[2];
-			//fprintf(log_file, "hid: %08lx, circle: %08lx, ts: %08lx\n", b[0], b[1], b[2]);
-			//fflush(log_file);
 		}
 	}
 
@@ -162,12 +162,8 @@ void thread_fun(void* a)
 	acExit();
 }
 
-int main(int argc, const char* argv[])
+void transport_loop(void *unused)
 {
-	sdmcInit();
-	log_file = fopen("service_log.log", "w");
-
-	Thread t = threadCreate(thread_fun, 0, 0x1000, 0x18, 0, false);
 
 	Handle hid = open_process(0x10);
 	Handle self = open_current_process();
@@ -175,19 +171,13 @@ int main(int argc, const char* argv[])
 	u32 ts_rd_loc = 0x0010df08;
 	u32 ts_wr_loc = 0x0010df10;
 
-	while(true)
+	while(run)
 	{
 		u32 orig_hid;
 		u32 orig_ts_and_circle[2];
 
 		copy_remote_memory(self, &orig_hid, hid, (void*)0x1ec46000, 4);
 		copy_remote_memory(self, &orig_ts_and_circle, hid,  (void*)ts_wr_loc, 8);
-
-		int raw_x = (orig_ts_and_circle[1] & 0xfff) - 2048;
-		int raw_y = ((orig_ts_and_circle[1] & 0xfff000) >> 12) - 2048;
-
-		fprintf(log_file, "raw circle: %08lx, circle: %i %i\n", orig_ts_and_circle[1], raw_x, raw_y);
-		fflush(log_file);
 
 		if(ts_in != 0xFFFFFFFF)
 		{
@@ -202,9 +192,23 @@ int main(int argc, const char* argv[])
 		orig_hid &= ~hid_in; // Clear the bits set in B.
 		copy_remote_memory(hid, (void*)hid_loc, self, &orig_hid, 4);
 		copy_remote_memory(hid, (void*)ts_rd_loc, self, &orig_ts_and_circle, 8);
-	}
 
-	threadJoin(t, U64_MAX);
+		svcSleepThread(10000000ULL); // Free up some CPU time. (run at 100Hz)
+	}
+}
+
+int main(int argc, const char* argv[])
+{
+/*	sdmcInit();
+	log_file = fopen("service_log.log", "w");*/
+
+	Thread inp_thread = threadCreate(input_loop, 0, 0x1000, 0x30, 0, false);
+	//Thread transport_thread = threadCreate(transport_loop, 0, 0x1000, 0x30, 1, false); // on the syscore!
+
+	transport_loop(NULL);
+
+	threadJoin(inp_thread, U64_MAX);
+	//threadJoin(transport_thread, U64_MAX);
 
 	svcExitProcess();
 	return 0;
