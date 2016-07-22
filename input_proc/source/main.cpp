@@ -164,7 +164,6 @@ void input_loop(void* a)
 
 void transport_loop(void *unused)
 {
-
 	Handle hid = open_process(0x10);
 	Handle self = open_current_process();
 	u32 hid_loc = 0x0010df00;
