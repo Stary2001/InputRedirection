@@ -37,7 +37,6 @@ int main()
 		gfxSwapBuffers();
 	}
 
-	sdmcExit();
 	// Exit services
 	gfxExit();
 	return 0;
