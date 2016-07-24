@@ -1,7 +1,7 @@
-.global hid_inject
-.global hid_inject_end
+.global read_circlepad_and_ts
+.global read_circlepad_and_ts_sz
 
-hid_inject:
+read_circlepad_and_ts:
 STMFD   SP!, {R4-R6,LR}
 MOV     R5, R1
 MRC     p15, 0, R4,c13,c0, 3
@@ -21,5 +21,7 @@ LDR     R0, [R4,#4]
 pop {r3}
 .ret:
 LDMFD   SP!, {R4-R6,PC}
+.LTORG # assembles literal pool
 
-hid_inject_end:
+read_circlepad_and_ts_sz:
+.4byte .-read_circlepad_and_ts

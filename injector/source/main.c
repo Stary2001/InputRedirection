@@ -19,9 +19,6 @@
 #define HID_TS_RD_LOC 0x10df04
 #define HID_TS_WR_LOC 0x10df08
 
-extern void shit();
-extern u32 shit_end;
-
 u32 protect_remote_memory(Handle hProcess, void* addr, u32 size)
 {
 	return svcControlProcessMemory(hProcess, (u32)addr, (u32)addr, size, 6, 7);
@@ -151,8 +148,8 @@ void hook(u32 loc, u32 storage, u32 *hook_code, u32 hook_len)
 	}
 }
 
-void hid_inject();
-u32 hid_inject_end;
+void read_circlepad_and_ts();
+extern u32 read_circlepad_and_ts_sz;
 
 int main()
 {
@@ -216,7 +213,7 @@ int main()
 			printf("patch 2 prot failed\n");
 		}
 
-		hook(HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&hid_inject, ((u32)&hid_inject_end - (u32)&hid_inject) + 8);
+		hook(HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_circlepad_and_ts, read_circlepad_and_ts_sz);
 
 		printf("hid done\n");
 	
