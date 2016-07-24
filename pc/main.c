@@ -79,15 +79,17 @@ int connect_to_3ds(const char *addr)
 void send_frame()
 {
 	char v[12];
-	uint32_t circle_state = 0xffffffff;
-	uint32_t touch_state = 0xffffffff;
+	uint32_t hid_state = ~hid_buttons;
+	hid_state ^= (0xf << 12);
+	uint32_t circle_state = 0x7FF7FF;
+	uint32_t touch_state = 0x02000000;
 	if(circle_x != 0 || circle_y != 0) // Do circle magic. 0x5d0 is the upper/lower bound of circle pad input
 	{
 		uint32_t x = circle_x;
 		uint32_t y = circle_y;
 		x = ((x * CPAD_BOUND) / 32768) + 2048;
 		y = ((y * CPAD_BOUND) / 32768) + 2048;
-		circle_state = x | (y << 12);
+		circle_state = (x | (y << 12)) + 0x01000000;
 	}
 
 	if(touching) // This is good enough.
@@ -99,9 +101,9 @@ void send_frame()
 		touch_state = x | (y << 12) | (0x01 << 24);
 	}
 
-    memcpy(v, &hid_buttons, 4);
-    memcpy(v + 4, &circle_state, 4);
-    memcpy(v + 8, &touch_state, 4);
+	memcpy(v, &hid_state, 4);
+    memcpy(v + 4, &touch_state, 4);
+    memcpy(v + 8, &circle_state, 4);
 
     int i = sendto(sock_fd, v, 12, 0, (struct sockaddr*)&sock_addr, sizeof(struct sockaddr_in));
 }
