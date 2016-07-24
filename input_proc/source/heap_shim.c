@@ -28,7 +28,7 @@ void __system_allocateHeaps(void)
 
 	// Allocate the application heap
 	__ctru_heap = 0x08000000;
-	svcControlMemory(&tmp, __ctru_heap, 0x0, __ctru_heap_size, MEMOP_ALLOC | MEMREGION_BASE, MEMPERM_READ | MEMPERM_WRITE);
+	svcControlMemory(&tmp, __ctru_heap, 0x0, __ctru_heap_size, MEMOP_ALLOC, MEMPERM_READ | MEMPERM_WRITE);
 
 	// Set up newlib heap
 	fake_heap_start = (char*)__ctru_heap;

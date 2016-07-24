@@ -97,7 +97,7 @@ u32 open_process(u32 pid)
 	return hProcess;
 }
 
-u32 hid_in = 0;
+u32 hid_in = 0xffffffff;
 u32 circle_in = 0xffffffff;
 u32 ts_in = 0xffffffff;
 
@@ -152,7 +152,7 @@ void input_loop(void* a)
 		if(byte_count >= 12)
 		{
 			u32 *b = (u32*)buf;
-			hid_in = b[0];
+			hid_in = ~b[0]; // 1 = pressed 0 = not pressed -> 0 = pressed 1 = not pressed
 			circle_in = b[1];
 			ts_in = b[2];
 		}
@@ -188,7 +188,7 @@ void transport_loop(void *unused)
 			orig_ts_and_circle[1] = circle_in;
 		}
 
-		orig_hid &= ~hid_in; // Clear the bits set in B.
+		orig_hid &= hid_in; // combine inputs
 		copy_remote_memory(hid, (void*)hid_loc, self, &orig_hid, 4);
 		copy_remote_memory(hid, (void*)ts_rd_loc, self, &orig_ts_and_circle, 8);
 
