@@ -53,7 +53,7 @@ u32 copy_remote_memory(Handle hDst, void* ptrDst, Handle hSrc, void* ptrSrc, u32
 		svcSleepThread(1000000000);
 		ret = svcGetDmaState(&state, hDma);
 		done_state = state;
-		printf("InterProcessDmaFinishState: %08lx\n", state);
+		//printf("InterProcessDmaFinishState: %08lx\n", state);
 	}
 
 	for (i = 0; i < 10000; i++)
@@ -69,7 +69,7 @@ u32 copy_remote_memory(Handle hDst, void* ptrDst, Handle hSrc, void* ptrSrc, u32
 
 	if (i >= 10000)
 	{
-		printf("readRemoteMemory time out %08lx\n", state);
+		//printf("readRemoteMemory time out %08lx\n", state);
 		return 1; // error
 	}
 
@@ -142,19 +142,19 @@ void hook(u32 loc, u32 storage, u32 *hook_code, u32 hook_len)
 {
 	if (protect_remote_memory(target, (void*)(storage & (~0xfff)), 0x1000) != 0)
 	{
-		printf("patch 4 prot failed\n");
+		//printf("patch 4 prot failed\n");
 	}
 
 	if (copy_remote_memory(target, (void*)storage, self, hook_code, hook_len) != 0)
 	{
-		printf("patch 4 copy failed\n");
+		//printf("patch 4 copy failed\n");
 	}
 
 	u32 br = branch(loc, storage);
 
 	if (copy_remote_memory(target, (void*)loc, self, &br, 4) != 0)
 	{
-		printf("patch 3 copy failed\n");
+		//printf("patch 3 copy failed\n");
 	}
 }
 
