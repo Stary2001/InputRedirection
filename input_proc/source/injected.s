@@ -27,12 +27,12 @@ bl .init
 
 @touch init
 ldr r0, =0x10df24
-ldr r1, =0x02000000
+ldr r1, =0x2000000
 bl .init
 
 @cpad init
 ldr r0, =0x10df28
-ldr r1, =0x7FF7FF
+ldr r1, =0x800800
 bl .init
 
 @buttons copy
@@ -51,7 +51,7 @@ bl .copy
 
 @cpad copy
 ldr r0, =0x10df28
-ldr r1, =0x7FF7FF
+ldr r1, =0x800800
 ldr r2, =0x10df14
 ldr r3, =0x10df0c
 bl .copy
