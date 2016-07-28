@@ -1,6 +1,4 @@
 # limitations
-the controller program doesn't have touchscreen yet
-
 i don't hook the IR service, so no zl/zr or c-stick
 
 ## credits and stuff
