@@ -18,7 +18,6 @@ namespace InputRedirection
         Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
         IPAddress ipAddress;
         string IPAddress = "192.168.1.2";
-        string newIPAddress = "";
         byte[] data = new byte[12];
         uint oldbuttons = 0xFFF;
         uint newbuttons = 0xFFF;
@@ -29,11 +28,11 @@ namespace InputRedirection
         uint touchclick = 0x00;
         uint cpadclick = 0x00;
         int Mode = 0;
-        Keys[] keysToCheck = { Keys.D0, Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.NumPad0, Keys.NumPad1, Keys.NumPad2, Keys.NumPad3, Keys.NumPad4, Keys.NumPad5, Keys.NumPad6, Keys.NumPad7, Keys.NumPad8, Keys.NumPad9, Keys.Decimal, Keys.OemPeriod, Keys.Back, Keys.Delete, Keys.Escape };
+        Keys[] ipKeysToCheck = { Keys.D0, Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.NumPad0, Keys.NumPad1, Keys.NumPad2, Keys.NumPad3, Keys.NumPad4, Keys.NumPad5, Keys.NumPad6, Keys.NumPad7, Keys.NumPad8, Keys.NumPad9, Keys.Decimal, Keys.OemPeriod, Keys.Back, Keys.Delete, Keys.Escape };
+        Keys[] buttonKeysToCheck = { Keys.A, Keys.B, Keys.RightShift, Keys.LeftShift, Keys.Enter, Keys.Right, Keys.Left, Keys.Up, Keys.Down, Keys.R, Keys.L, Keys.X, Keys.Y, Keys.Escape };
         Keys[] KeyboardInput = { Keys.A, Keys.S, Keys.N, Keys.M, Keys.H, Keys.F, Keys.T, Keys.G, Keys.W, Keys.Q, Keys.Z, Keys.X, Keys.Right, Keys.Left, Keys.Up, Keys.Down };
-        Buttons[] GamePadInput = { Buttons.B, Buttons.A, Buttons.Back, Buttons.Start, Buttons.DPadRight, Buttons.DPadLeft, Buttons.DPadUp, Buttons.DPadDown, Buttons.RightShoulder, Buttons.LeftShoulder, Buttons.Y, Buttons.X };
-        Keys[] newKeyboardInput;
-        Buttons[] newGamePadInput;
+        uint[] GamePadInput = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x020, 0x40, 0x80, 0x100, 0x200, 0x400, 0x800 };
+        string[] ButtonNames = { "A", "B", "Select", "Start", "DPad Right", "DPad Left", "DPad Up", "DPad Down", "R", "L", "X", "Y" };
         Keys UpKey;
         bool WaitForKeyUp;
         bool debug = false;
@@ -41,6 +40,7 @@ namespace InputRedirection
         GamePadState gamePadState;
         uint KeyIndex;
         Keys OldKey;
+        uint OldButton;
 
         public Game1()
         {
@@ -85,37 +85,43 @@ namespace InputRedirection
             {
                 case 0:
                     {
+                        IsMouseVisible = !debug;
                         ReadMain();
                     }
                     break;
 
                 case 1:
                     {
+                        IsMouseVisible = true;
                         ReadIPInput();
                     }
                     break;
 
                 case 2:
                     {
+                        IsMouseVisible = true;
                         ReadKeyboardInput();
                     }
                     break;
 
                 case 3:
                     {
+                        IsMouseVisible = true;
                         ReadGamePadInput();
                     }
                     break;
 
                 case 4:
                     {
+                        IsMouseVisible = true;
                         ReadNewKey();
                     }
                     break;
 
                 case 5:
                     {
-                        ReadGamePadInput();
+                        IsMouseVisible = true;
+                        ReadNewButton();
                     }
                     break;
 
@@ -179,10 +185,10 @@ namespace InputRedirection
                 KeyboardInput[i] = (Keys)Enum.Parse(typeof(Keys), sr.ReadLine());
             }
 
-            /*for (int i = 0; i < GamePadInput.Length; i++)
+            for (int i = 0; i < GamePadInput.Length; i++)
             {
-                GamePadInput[i] = (Buttons)Enum.Parse(typeof(Buttons), sr.ReadLine());
-            }*/
+                GamePadInput[i] = Convert.ToUInt32(sr.ReadLine());
+            }
             sr.Close();
         }
 
@@ -198,10 +204,10 @@ namespace InputRedirection
                 sw.WriteLine(KeyboardInput[i]);
             }
 
-            /*for (int i = 0; i < GamePadInput.Length; i++)
+            for (int i = 0; i < GamePadInput.Length; i++)
             {
                 sw.WriteLine(GamePadInput[i]);
-            }*/
+            }
             sw.Close();
         }
 
@@ -241,16 +247,16 @@ namespace InputRedirection
 
                         default:
                             {
-                                for (int i = 0; i < newKeyboardInput.Length; i++)
+                                for (int i = 0; i < KeyboardInput.Length; i++)
                                 {
-                                    if (keyboardState.GetPressedKeys()[0] == newKeyboardInput[i])
+                                    if (keyboardState.GetPressedKeys()[0] == KeyboardInput[i])
                                     {
                                         break;
                                     }
 
-                                    if (i == (newKeyboardInput.Length - 1))
+                                    if (i == (KeyboardInput.Length - 1))
                                     {
-                                        newKeyboardInput[KeyIndex] = keyboardState.GetPressedKeys()[0];
+                                        KeyboardInput[KeyIndex] = keyboardState.GetPressedKeys()[0];
                                         Mode = 2;
                                         WaitForKeyUp = true;
                                         UpKey = keyboardState.GetPressedKeys()[0];
@@ -258,6 +264,132 @@ namespace InputRedirection
                                 }
                             }
                             break;
+                    }
+                }
+            }
+            else
+            {
+                if (Keyboard.GetState().IsKeyUp(UpKey))
+                {
+                    WaitForKeyUp = false;
+                }
+            }
+        }
+
+        private void ReadNewButton()
+        {
+            if (!WaitForKeyUp)
+            {
+                for (int i = 0; i < buttonKeysToCheck.Length; i++)
+                {
+                    if (Keyboard.GetState().IsKeyDown(buttonKeysToCheck[i]))
+                    {
+                        WaitForKeyUp = true;
+                        UpKey = buttonKeysToCheck[i];
+                        switch (buttonKeysToCheck[i])
+                        {
+                            case Keys.Escape:
+                                {
+                                    if (System.Net.IPAddress.TryParse(IPAddress, out ipAddress))
+                                    {
+                                        GamePadInput[KeyIndex] = OldButton;
+                                        Mode = 3;
+                                    }
+                                }
+                                break;
+
+                            default:
+                                {
+                                    switch(buttonKeysToCheck[i])
+                                    {
+                                        case Keys.A:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x01;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.B:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x02;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.RightShift:
+                                        case Keys.LeftShift:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x04;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.Enter:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x08;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.Right:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x10;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.Left:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x20;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.Up:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x40;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.Down:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x80;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.R:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x100;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.L:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x200;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.X:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x400;
+                                                Mode = 3;
+                                            }
+                                            break;
+
+                                        case Keys.Y:
+                                            {
+                                                GamePadInput[KeyIndex] = 0x800;
+                                                Mode = 3;
+                                            }
+                                            break;
+                                    }
+                                }
+                                break;
+                        }
                     }
                 }
             }
@@ -279,7 +411,6 @@ namespace InputRedirection
                     WaitForKeyUp = true;
                     UpKey = Keys.F1;
                     Mode = 1;
-                    newIPAddress = IPAddress;
                 }
 
                 if (Keyboard.GetState().IsKeyDown(Keys.F2))
@@ -287,16 +418,14 @@ namespace InputRedirection
                     WaitForKeyUp = true;
                     UpKey = Keys.F2;
                     Mode = 2;
-                    newKeyboardInput = KeyboardInput;
                 }
 
-                /*if (Keyboard.GetState().IsKeyDown(Keys.F3))
+                if (Keyboard.GetState().IsKeyDown(Keys.F3))
                 {
                     WaitForKeyUp = true;
                     UpKey = Keys.F3;
                     Mode = 3;
-                    newGamePadInput = GamePadInput;
-                }*/
+                }
 
                 if (Keyboard.GetState().IsKeyDown(Keys.F4))
                 {
@@ -318,54 +447,110 @@ namespace InputRedirection
             keyboardState = Keyboard.GetState();
             gamePadState = GamePad.GetState(PlayerIndex.One);
             newbuttons = 0x00;
+            //Keyboard
             for (int i = 0; i < GamePadInput.Length; i++)
             {
-                switch (GamePadInput[i])
+                if (keyboardState.IsKeyDown(KeyboardInput[i]))
                 {
-                    case Buttons.DPadUp:
-                        {
-                            if ((GamePad.GetState(PlayerIndex.One).DPad.Up == ButtonState.Pressed) || keyboardState.IsKeyDown(KeyboardInput[i]))
-                            {
-                                newbuttons += (uint)(0x01 << i);
-                            }
-                        }
-                        break;
+                    newbuttons += (uint)(0x01 << i);
+                }
+            }
 
-                    case Buttons.DPadDown:
-                        {
-                            if ((GamePad.GetState(PlayerIndex.One).DPad.Down == ButtonState.Pressed) || keyboardState.IsKeyDown(KeyboardInput[i]))
-                            {
-                                newbuttons += (uint)(0x01 << i);
-                            }
-                        }
-                        break;
+            //GamePad
+            if (GamePad.GetState(PlayerIndex.One).Buttons.B == ButtonState.Pressed)
+            {
+                if((newbuttons & GamePadInput[0]) != GamePadInput[0])
+                {
+                    newbuttons += GamePadInput[0];
+                }
+            }
 
-                    case Buttons.DPadLeft:
-                        {
-                            if ((GamePad.GetState(PlayerIndex.One).DPad.Left == ButtonState.Pressed) || keyboardState.IsKeyDown(KeyboardInput[i]))
-                            {
-                                newbuttons += (uint)(0x01 << i);
-                            }
-                        }
-                        break;
+            if (GamePad.GetState(PlayerIndex.One).Buttons.A == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[1]) != GamePadInput[1])
+                {
+                    newbuttons += GamePadInput[1];
+                }
+            }
 
-                    case Buttons.DPadRight:
-                        {
-                            if ((GamePad.GetState(PlayerIndex.One).DPad.Right == ButtonState.Pressed) || keyboardState.IsKeyDown(KeyboardInput[i]))
-                            {
-                                newbuttons += (uint)(0x01 << i);
-                            }
-                        }
-                        break;
 
-                    default:
-                        {
-                            if (gamePadState.IsButtonDown(GamePadInput[i]) || keyboardState.IsKeyDown(KeyboardInput[i]))
-                            {
-                                newbuttons += (uint)(0x01 << i);
-                            }
-                        }
-                        break;
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[2]) != GamePadInput[2])
+                {
+                    newbuttons += GamePadInput[2];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Start == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[3]) != GamePadInput[3])
+                {
+                    newbuttons += GamePadInput[3];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).DPad.Right == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[4]) != GamePadInput[4])
+                {
+                    newbuttons += GamePadInput[4];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).DPad.Left == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[5]) != GamePadInput[5])
+                {
+                    newbuttons += GamePadInput[5];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).DPad.Up == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[6]) != GamePadInput[6])
+                {
+                    newbuttons += GamePadInput[6];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).DPad.Down == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[7]) != GamePadInput[7])
+                {
+                    newbuttons += GamePadInput[7];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).Buttons.RightShoulder == ButtonState.Pressed)
+            {
+                if((newbuttons & GamePadInput[8]) != GamePadInput[8])
+                {
+                    newbuttons += GamePadInput[8];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).Buttons.LeftShoulder == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[9]) != GamePadInput[9])
+                {
+                    newbuttons += GamePadInput[9];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Y == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[10]) != GamePadInput[10])
+                {
+                    newbuttons += GamePadInput[10];
+                }
+            }
+
+            if (GamePad.GetState(PlayerIndex.One).Buttons.X == ButtonState.Pressed)
+            {
+                if ((newbuttons & GamePadInput[11]) != GamePadInput[11])
+                {
+                    newbuttons += GamePadInput[11];
                 }
             }
 
@@ -439,27 +624,27 @@ namespace InputRedirection
         {
             if (!WaitForKeyUp)
             {
-                for (int i = 0; i < keysToCheck.Length; i++)
+                for (int i = 0; i < ipKeysToCheck.Length; i++)
                 {
-                    if (Keyboard.GetState().IsKeyDown(keysToCheck[i]))
+                    if (Keyboard.GetState().IsKeyDown(ipKeysToCheck[i]))
                     {
                         WaitForKeyUp = true;
-                        UpKey = keysToCheck[i];
-                        switch (keysToCheck[i])
+                        UpKey = ipKeysToCheck[i];
+                        switch (ipKeysToCheck[i])
                         {
                             case Keys.Back:
                             case Keys.Delete:
                                 {
-                                    if (newIPAddress.Length != 0)
+                                    if (IPAddress.Length != 0)
                                     {
-                                        newIPAddress = newIPAddress.Substring(0, newIPAddress.Length - 1);
+                                        IPAddress = IPAddress.Substring(0, IPAddress.Length - 1);
                                     }
                                 }
                                 break;
 
                             case Keys.Escape:
                                 {
-                                    if (System.Net.IPAddress.TryParse(newIPAddress, out ipAddress))
+                                    if (System.Net.IPAddress.TryParse(IPAddress, out ipAddress))
                                     {
                                         Mode = 0;
                                         IPAddress = ipAddress.ToString();
@@ -470,9 +655,9 @@ namespace InputRedirection
 
                             default:
                                 {
-                                    if (newIPAddress.Length < 15)
+                                    if (IPAddress.Length < 15)
                                     {
-                                        newIPAddress += KeytoText(keysToCheck[i]);
+                                        IPAddress += KeytoText(ipKeysToCheck[i]);
                                     }
                                 }
                                 break;
@@ -493,14 +678,14 @@ namespace InputRedirection
         {
             if (!WaitForKeyUp)
             {
-                for (int i = 0; i < newKeyboardInput.Length; i++)
+                for (int i = 0; i < KeyboardInput.Length; i++)
                 {
-                    if (Keyboard.GetState().IsKeyDown(newKeyboardInput[i]))
+                    if (Keyboard.GetState().IsKeyDown(KeyboardInput[i]))
                     {
                         WaitForKeyUp = true;
-                        UpKey = newKeyboardInput[i];
-                        OldKey = newKeyboardInput[i];
-                        newKeyboardInput[i] = Keys.None;
+                        UpKey = KeyboardInput[i];
+                        OldKey = KeyboardInput[i];
+                        KeyboardInput[i] = Keys.None;
                         KeyIndex = (uint)i;
                         Mode = 4;
                     }
@@ -509,7 +694,6 @@ namespace InputRedirection
                 if (Keyboard.GetState().IsKeyDown(Keys.Escape))
                 {
                     Mode = 0;
-                    KeyboardInput = newKeyboardInput;
                     WaitForKeyUp = true;
                     UpKey = Keys.Escape;
                     SaveConfig();
@@ -526,7 +710,120 @@ namespace InputRedirection
 
         private void ReadGamePadInput()
         {
+            if (!WaitForKeyUp)
+            {
+                if(GamePad.GetState(PlayerIndex.One).Buttons.B == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 0;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
 
+                if (GamePad.GetState(PlayerIndex.One).Buttons.A == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 1;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+
+                if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 2;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).Buttons.Start == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 3;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).DPad.Right == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 4;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).DPad.Left == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 5;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).DPad.Up == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 6;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).DPad.Down == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 7;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).Buttons.RightShoulder == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 8;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).Buttons.LeftShoulder == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 9;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).Buttons.Y == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 10;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (GamePad.GetState(PlayerIndex.One).Buttons.X == ButtonState.Pressed)
+                {
+                    Mode = 5;
+                    KeyIndex = 11;
+                    OldButton = GamePadInput[KeyIndex];
+                    GamePadInput[KeyIndex] = 0;
+                }
+
+                if (Keyboard.GetState().IsKeyDown(Keys.Escape))
+                {
+                    Mode = 0;
+                    WaitForKeyUp = true;
+                    UpKey = Keys.Escape;
+                    SaveConfig();
+                }
+            }
+            else
+            {
+                if (Keyboard.GetState().IsKeyUp(UpKey))
+                {
+                    WaitForKeyUp = false;
+                }
+            }
         }
 
         private void ShowMain()
@@ -571,55 +868,74 @@ namespace InputRedirection
 
         private void ShowIPInput()
         {
-            DrawString(0, 0, "IP Address: " + newIPAddress, Color.White);
+            DrawString(0, 0, "IP Address: " + IPAddress, Color.White);
         }
 
         private void ShowKeyboardInput()
         {
-            DrawString(68, 36, "DPad Up    : " + newKeyboardInput[6], Color.White);
-            DrawString(68, 44, "DPad Down  : " + newKeyboardInput[7], Color.White);
-            DrawString(68, 52, "DPad Left  : " + newKeyboardInput[5], Color.White);
-            DrawString(68, 60, "DPad Right : " + newKeyboardInput[4], Color.White);
+            DrawString(68, 28, "3DS        : Keyboard", Color.White);
 
-            DrawString(68, 76, "CPad Up    : " + newKeyboardInput[14], Color.White);
-            DrawString(68, 84, "CPad Down  : " + newKeyboardInput[15], Color.White);
-            DrawString(68, 92, "CPad Left  : " + newKeyboardInput[13], Color.White);
-            DrawString(68, 100, "CPad Right : " + newKeyboardInput[12], Color.White);
+            DrawString(68, 44, "DPad Up    : " + KeyboardInput[6], Color.White);
+            DrawString(68, 52, "DPad Down  : " + KeyboardInput[7], Color.White);
+            DrawString(68, 60, "DPad Left  : " + KeyboardInput[5], Color.White);
+            DrawString(68, 68, "DPad Right : " + KeyboardInput[4], Color.White);
+
+            DrawString(68, 84, "CPad Up    : " + KeyboardInput[14], Color.White);
+            DrawString(68, 92, "CPad Down  : " + KeyboardInput[15], Color.White);
+            DrawString(68, 100, "CPad Left  : " + KeyboardInput[13], Color.White);
+            DrawString(68, 108, "CPad Right : " + KeyboardInput[12], Color.White);
         
 
-            DrawString(68, 116, "A          : " + newKeyboardInput[0], Color.White);
-            DrawString(68, 124, "B          : " + newKeyboardInput[1], Color.White);
-            DrawString(68, 132, "Y          : " + newKeyboardInput[11], Color.White);
-            DrawString(68, 140, "X          : " + newKeyboardInput[10], Color.White);
+            DrawString(68, 124, "A          : " + KeyboardInput[0], Color.White);
+            DrawString(68, 132, "B          : " + KeyboardInput[1], Color.White);
+            DrawString(68, 140, "Y          : " + KeyboardInput[11], Color.White);
+            DrawString(68, 148, "X          : " + KeyboardInput[10], Color.White);
 
-            DrawString(68, 156, "L          : " + newKeyboardInput[9], Color.White);
-            DrawString(68, 164, "R          : " + newKeyboardInput[8], Color.White);
-            DrawString(68, 172, "Start      : " + newKeyboardInput[3], Color.White);
-            DrawString(68, 180, "Select     : " + newKeyboardInput[2], Color.White);
+            DrawString(68, 164, "L          : " + KeyboardInput[9], Color.White);
+            DrawString(68, 172, "R          : " + KeyboardInput[8], Color.White);
+            DrawString(68, 180, "Start      : " + KeyboardInput[3], Color.White);
+            DrawString(68, 188, "Select     : " + KeyboardInput[2], Color.White);
         }
 
         private void ShowGamePadInput()
         {
-            DrawString(68, 36, "DPad Up    : " + newGamePadInput[6], Color.White);
-            DrawString(68, 44, "DPad Down  : " + newGamePadInput[7], Color.White);
-            DrawString(68, 52, "DPad Left  : " + newGamePadInput[5], Color.White);
-            DrawString(68, 60, "DPad Right : " + newGamePadInput[4], Color.White);
+            DrawString(68, 28, "Controller : 3DS", Color.White);
+            DrawString(68, 44, "DPad Up    : " + GetButtonNameFromValue(GamePadInput[6]), Color.White);
+            DrawString(68, 52, "DPad Down  : " + GetButtonNameFromValue(GamePadInput[7]), Color.White);
+            DrawString(68, 60, "DPad Left  : " + GetButtonNameFromValue(GamePadInput[5]), Color.White);
+            DrawString(68, 68, "DPad Right : " + GetButtonNameFromValue(GamePadInput[4]), Color.White);
 
-            DrawString(68, 76, "CPad Up    : LeftStickUp", Color.Gray);
-            DrawString(68, 84, "CPad Down  : LeftStickDown", Color.Gray);
-            DrawString(68, 92, "CPad Left  : LeftStickLeft", Color.Gray);
-            DrawString(68, 100, "CPad Right : LeftStickRight", Color.Gray);
+            DrawString(68, 84, "Y Axis+    : CPad Up", Color.Gray);
+            DrawString(68, 92, "Y Axis-    : CPad Down", Color.Gray);
+            DrawString(68, 100, "X Axis+    : CPad Left", Color.Gray);
+            DrawString(68, 108, "X Axis-    : CPad Right", Color.Gray);
 
 
-            DrawString(68, 116, "A          : " + newGamePadInput[0], Color.White);
-            DrawString(68, 124, "B          : " + newGamePadInput[1], Color.White);
-            DrawString(68, 132, "Y          : " + newGamePadInput[11], Color.White);
-            DrawString(68, 140, "X          : " + newGamePadInput[10], Color.White);
+            DrawString(68, 124, "B          : " + GetButtonNameFromValue(GamePadInput[0]), Color.White);
+            DrawString(68, 132, "A          : " + GetButtonNameFromValue(GamePadInput[1]), Color.White);
+            DrawString(68, 140, "X          : " + GetButtonNameFromValue(GamePadInput[11]), Color.White);
+            DrawString(68, 148, "Y          : " + GetButtonNameFromValue(GamePadInput[10]), Color.White);
 
-            DrawString(68, 156, "L          : " + newGamePadInput[9], Color.White);
-            DrawString(68, 164, "R          : " + newGamePadInput[8], Color.White);
-            DrawString(68, 172, "Start      : " + newGamePadInput[3], Color.White);
-            DrawString(68, 180, "Select     : " + newGamePadInput[2], Color.White);
+            DrawString(68, 164, "LB         : " + GetButtonNameFromValue(GamePadInput[9]), Color.White);
+            DrawString(68, 172, "RB         : " + GetButtonNameFromValue(GamePadInput[8]), Color.White);
+            DrawString(68, 180, "Start      : " + GetButtonNameFromValue(GamePadInput[3]), Color.White);
+            DrawString(68, 188, "Back       : " + GetButtonNameFromValue(GamePadInput[2]), Color.White);
+        }
+
+        private string GetButtonNameFromValue(uint value)
+        {
+            string result = "None";
+
+            for(int i = 0; i < ButtonNames.Length; i++)
+            {
+                if((value >> i) == 0x01)
+                {
+                    result = ButtonNames[i];
+                    break;
+                }
+            }
+
+            return result;
         }
 
         private string KeytoText(Keys key)
