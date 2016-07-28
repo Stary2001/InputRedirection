@@ -12,8 +12,8 @@ Shinyquagsire for inspiring me to start this with his writeup, then helping me a
 Install the input_proc cia on your 3ds, then run the injector. this will do the thing.
 
 use one of these input programs to do thing:
-[SDL for linux](https://github.com/Stary2001/InputClient-SDL)
-[XInput for windows](https://github.com/Kazo/InputRedirectionClient)
+* [SDL for linux](https://github.com/Stary2001/InputClient-SDL)
+* [XInput for windows](https://github.com/Kazo/InputRedirectionClient)
 
 ## note
 buildtools requires a 1 line patch for the input redirector cia to work best:
