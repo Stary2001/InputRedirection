@@ -29,7 +29,7 @@
 #define HID_TS_RD_LOC 0x10df04
 #define HID_TS_WR_LOC 0x10df08
 
-#ifdef NTR
+#ifndef NTR
 void noop(const char *a, ...)
 { (void)a; }
 #define OUTPUT noop
@@ -177,7 +177,6 @@ void input_loop(void* a)
 	Handle hid = open_process(0x10);
 	Handle self = open_current_process();
 	u32 input_loc = 0x10df20;
-	u32 input[3];
 
 	acInit();
 	u32 *sockbuf = (u32*)memalign(0x1000, 0x10000);

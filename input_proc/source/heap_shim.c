@@ -1,3 +1,5 @@
+#ifndef NTR
+
 #include <3ds/types.h>
 #include <3ds/svc.h>
 #include <3ds/env.h>
@@ -34,3 +36,5 @@ void __system_allocateHeaps(void)
 	fake_heap_start = (char*)__ctru_heap;
 	fake_heap_end = fake_heap_start + __ctru_heap_size;
 }
+
+#endif
