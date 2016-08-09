@@ -5,7 +5,6 @@
 *.zip
 *.o
 *.d
-input_proc/output
-input_proc/build
-injector/build
-pc/input
+input_proc/output*
+input_proc/build*
+input_loader/build

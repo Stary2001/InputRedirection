@@ -12,7 +12,7 @@ int main()
 	u32 pid;
 
 	nsInit();
-	Result r = NS_LaunchTitle(0x0004000000123400LL, 3, &pid);
+	Result r = NS_LaunchTitle(0x40000096E7F00LL, 3, &pid);
 	nsExit();
 	if(r != 0)
 	{

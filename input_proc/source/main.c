@@ -29,6 +29,15 @@
 #define HID_TS_RD_LOC 0x10df04
 #define HID_TS_WR_LOC 0x10df08
 
+#ifdef NTR
+void noop(const char *a, ...)
+{ (void)a; }
+#define OUTPUT noop
+#else
+#define OUTPUT printf
+#endif
+
+
 u32 protect_remote_memory(Handle hProcess, void* addr, u32 size)
 {
 	return svcControlProcessMemory(hProcess, (u32)addr, (u32)addr, size, 6, 7);
@@ -53,7 +62,7 @@ u32 copy_remote_memory(Handle hDst, void* ptrDst, Handle hSrc, void* ptrSrc, u32
 		svcSleepThread(1000000000);
 		ret = svcGetDmaState(&state, hDma);
 		done_state = state;
-		//printf("InterProcessDmaFinishState: %08lx\n", state);
+		OUTPUT("InterProcessDmaFinishState: %08lx\n", state);
 	}
 
 	for (i = 0; i < 10000; i++)
@@ -69,7 +78,7 @@ u32 copy_remote_memory(Handle hDst, void* ptrDst, Handle hSrc, void* ptrSrc, u32
 
 	if (i >= 10000)
 	{
-		//printf("readRemoteMemory time out %08lx\n", state);
+		OUTPUT("readRemoteMemory time out %08lx\n", state);
 		return 1; // error
 	}
 
@@ -142,19 +151,19 @@ void hook(u32 loc, u32 storage, u32 *hook_code, u32 hook_len)
 {
 	if (protect_remote_memory(target, (void*)(storage & (~0xfff)), 0x1000) != 0)
 	{
-		//printf("patch 4 prot failed\n");
+		OUTPUT("patch 4 prot failed\n");
 	}
 
 	if (copy_remote_memory(target, (void*)storage, self, hook_code, hook_len) != 0)
 	{
-		//printf("patch 4 copy failed\n");
+		OUTPUT("patch 4 copy failed\n");
 	}
 
 	u32 br = branch(loc, storage);
 
 	if (copy_remote_memory(target, (void*)loc, self, &br, 4) != 0)
 	{
-		//printf("patch 3 copy failed\n");
+		OUTPUT("patch 3 copy failed\n");
 	}
 }
 
@@ -214,11 +223,7 @@ void input_loop(void* a)
 
 		if(byte_count >= 12)
 		{
-			u32 *b = (u32*)buf;
-			input[0] = b[0];
-			input[1] = b[1];
-			input[2] = b[2];
-			copy_remote_memory(hid, (void*)input_loc, self, &input, 12);
+			copy_remote_memory(hid, (void*)input_loc, self, buf, 12);
 		}
 	}
 
@@ -228,7 +233,12 @@ void input_loop(void* a)
 
 int main()
 {
-	//printf("injecting into hid..\n");
+	#ifdef NTR
+	gfxInitDefault();
+	consoleInit(GFX_BOTTOM, NULL);
+	#endif
+
+	OUTPUT("injecting into hid..\n");
 
 	self = open_current_process();
 
@@ -241,13 +251,16 @@ int main()
 	Result r = copy_remote_memory(self, &test, target, (void*)new_loc, 4);
 	if (r != 0)
 	{
-		//printf("copy returned %08lx\n", r);
+		OUTPUT("copy returned %08lx\n", r);
 		exit(0);
 	}
 
+	bool err = false;
+
 	if (test != 0)
 	{
-		//printf("!!!!!!\n");
+		OUTPUT("Already patched? \n");
+		err = true;
 	}
 	else
 	{
@@ -255,46 +268,70 @@ int main()
 		r = copy_remote_memory(target, (void*)new_loc, self, &f, 4);
 		if (r != 0)
 		{
-			//printf("init copy failed\n");
+			OUTPUT("init copy failed\n");
+			err = true;
 		}
 
-		if (protect_remote_memory(target, (void*)(HID_PATCH1_LOC & (~0xfff)), 0x1000) != 0)
+		if (!err && protect_remote_memory(target, (void*)(HID_PATCH1_LOC & (~0xfff)), 0x1000) != 0)
 		{
-			//printf("patch 1 prot failed\n");
+			OUTPUT("patch 1 prot failed\n");
+			err = true;
 		}
 
-		if (copy_remote_memory(target, (void*)HID_PATCH1_LOC, self, &new_loc, 4) != 0)
+		if (!err && copy_remote_memory(target, (void*)HID_PATCH1_LOC, self, &new_loc, 4) != 0)
 		{
-			//printf("patch 1 copy failed\n");
+			OUTPUT("patch 1 copy failed\n");
+			err = true;
 		}
 
-		if (protect_remote_memory(target, (void*)(HID_PATCH2_LOC & (~0xfff)), 0x1000) != 0)
+		if (!err && protect_remote_memory(target, (void*)(HID_PATCH2_LOC & (~0xfff)), 0x1000) != 0)
 		{
-			//printf("patch 2 prot failed\n");
+			OUTPUT("patch 2 prot failed\n");
+			err = true;
 		}
 
-		if (copy_remote_memory(target, (void*)HID_PATCH2_LOC, self, &new_loc, 4) != 0)
+		if (!err && copy_remote_memory(target, (void*)HID_PATCH2_LOC, self, &new_loc, 4) != 0)
 		{
-			//printf("patch 2 copy failed\n");
+			OUTPUT("patch 2 copy failed\n");
+			err = true;
 		}
 
-		if (protect_remote_memory(target, (void*)(HID_PATCH3_LOC & (~0xfff)), 0x1000) != 0)
+		if (!err && protect_remote_memory(target, (void*)(HID_PATCH3_LOC & (~0xfff)), 0x1000) != 0)
 		{
-			//printf("patch 2 prot failed\n");
+			OUTPUT("patch 3 prot failed\n");
+			err = true;
 		}
 
-		hook(HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_input, read_input_sz);
-
-		//printf("hid done\n");
-
-		killCache();
+		if(!err)
+		{
+			hook(HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_input, read_input_sz);
+			killCache();
+		}
 
 		svcCloseHandle(target);
 		svcCloseHandle(self);
 	}
-
+#ifndef NTR
 	input_loop(NULL);
-
 	svcExitProcess();
+#else
+	if(err)
+	{
+		printf("An error occured!\n");
+		while (aptMainLoop())
+		{
+			gspWaitForVBlank();
+			hidScanInput();
+
+			u32 kDown = hidKeysDown();
+			if (kDown & KEY_START)
+				break; // break in order to return to hbmenu
+					   // Flush and swap framebuffers
+			gfxFlushBuffers();
+			gfxSwapBuffers();
+		}
+	}
+#endif
+
 	return 0;
 }
