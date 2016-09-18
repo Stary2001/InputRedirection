@@ -13,6 +13,9 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <scenic/proc.h>
+#include <scenic/dma.h>
+
 #define HID_PID 0x10
 
 // 9.2 HID
@@ -37,135 +40,8 @@ void noop(const char *a, ...)
 #define OUTPUT printf
 #endif
 
-
-u32 protect_remote_memory(Handle hProcess, void* addr, u32 size)
-{
-	return svcControlProcessMemory(hProcess, (u32)addr, (u32)addr, size, 6, 7);
-}
-
-u32 copy_remote_memory(Handle hDst, void* ptrDst, Handle hSrc, void* ptrSrc, u32 size)
-{
-	static u32 done_state = 0;
-
-	u32 ret, i, state;
-	u32 dmaConfig[20] = { 0 };
-	Handle hDma;
-
-	ret = svcFlushProcessDataCache(hSrc, ptrSrc, size);
-	ret = svcFlushProcessDataCache(hDst, ptrDst, size);
-	ret = svcStartInterProcessDma(&hDma, hDst, ptrDst, hSrc, ptrSrc, size, dmaConfig);
-	state = 0;
-
-	if (done_state == 0)
-	{
-		ret = svcGetDmaState(&state, hDma);
-		svcSleepThread(1000000000);
-		ret = svcGetDmaState(&state, hDma);
-		done_state = state;
-		OUTPUT("InterProcessDmaFinishState: %08lx\n", state);
-	}
-
-	for (i = 0; i < 10000; i++)
-	{
-		state = 0;
-		ret = svcGetDmaState(&state, hDma);
-		if (state == done_state)
-		{
-			break;
-		}
-		svcSleepThread(1000000);
-	}
-
-	if (i >= 10000)
-	{
-		OUTPUT("readRemoteMemory time out %08lx\n", state);
-		return 1; // error
-	}
-
-	svcCloseHandle(hDma);
-	ret = svcInvalidateProcessDataCache(hDst, ptrDst, size);
-	if (ret != 0)
-	{
-		return ret;
-	}
-	return 0;
-
-}
-
-u32 open_current_process()
-{
-	u32 handle = 0;
-	u32 ret;
-	u32 hCurrentProcess;
-	u32 currentPid;
-
-	svcGetProcessId(&currentPid, 0xffff8001);
-	ret = svcOpenProcess(&handle, currentPid);
-	if (ret != 0)
-	{
-		return 0;
-	}
-	hCurrentProcess = handle;
-	return hCurrentProcess;
-}
-
-u32 open_process(u32 pid)
-{
-	Handle hProcess;
-	Result r = svcOpenProcess(&hProcess, pid);
-	if (r != 0)
-	{
-		return 0;
-	}
-	return hProcess;
-}
-
-s32 killCache_k()
-{
-	__asm__ volatile("cpsid aif");
-	__asm__ volatile("mcr p15, 0, r0, c7, c5, 0"); // icache
-	__asm__ volatile("mcr p15, 0, r0, c7, c14, 0"); // dcache
-	return 0;
-}
-
-void killCache()
-{
-	svcBackdoor(killCache_k);
-}
-
-u32 branch(u32 base, u32 target)
-{
-	s32 off = (s32)(target - base);
-	off -= 8; // arm is 2 instructions ahead (8 bytes)
-	off /= 4; // word offset vs byte offset
-
-	u32 ins = 0xea000000; // branch without link
-	ins |= *(u32*)&off;
-	return ins;
-}
-
-Handle target;
-Handle self;
-
-void hook(u32 loc, u32 storage, u32 *hook_code, u32 hook_len)
-{
-	if (protect_remote_memory(target, (void*)(storage & (~0xfff)), 0x1000) != 0)
-	{
-		OUTPUT("patch 4 prot failed\n");
-	}
-
-	if (copy_remote_memory(target, (void*)storage, self, hook_code, hook_len) != 0)
-	{
-		OUTPUT("patch 4 copy failed\n");
-	}
-
-	u32 br = branch(loc, storage);
-
-	if (copy_remote_memory(target, (void*)loc, self, &br, 4) != 0)
-	{
-		OUTPUT("patch 3 copy failed\n");
-	}
-}
+scenic_process *self;
+scenic_process *hid;
 
 void read_input();
 extern u32 read_input_sz;
@@ -174,8 +50,6 @@ bool run = true;
 
 void input_loop(void* a)
 {
-	Handle hid = open_process(0x10);
-	Handle self = open_current_process();
 	u32 input_loc = 0x10df20;
 
 	acInit();
@@ -222,7 +96,7 @@ void input_loop(void* a)
 
 		if(byte_count >= 12)
 		{
-			copy_remote_memory(hid, (void*)input_loc, self, buf, 12);
+			dma_copy(hid, (void*)input_loc, self, buf, 12);
 		}
 	}
 
@@ -239,16 +113,14 @@ int main()
 
 	OUTPUT("injecting into hid..\n");
 
-	self = open_current_process();
+	self = proc_open((u32)-1, 0);
+	hid = proc_open(0x10, 0);
 
 	u32 new_loc = HID_DAT_LOC;
-
-	target = open_process(HID_PID);
-
 	u32 test = 0;
 
-	Result r = copy_remote_memory(self, &test, target, (void*)new_loc, 4);
-	if (r != 0)
+	int r = dma_copy(self, &test, hid, (void*)new_loc, 4);
+	if (r)
 	{
 		OUTPUT("copy returned %08lx\n", r);
 		exit(0);
@@ -264,38 +136,38 @@ int main()
 	else
 	{
 		u32 f = 0xffffffff;
-		r = copy_remote_memory(target, (void*)new_loc, self, &f, 4);
+		r = dma_copy(hid, (void*)new_loc, self, &f, 4);
 		if (r != 0)
 		{
 			OUTPUT("init copy failed\n");
 			err = true;
 		}
 
-		if (!err && protect_remote_memory(target, (void*)(HID_PATCH1_LOC & (~0xfff)), 0x1000) != 0)
+		if (!err && dma_protect(hid, (void*)(HID_PATCH1_LOC & (~0xfff)), 0x1000) != 0)
 		{
 			OUTPUT("patch 1 prot failed\n");
 			err = true;
 		}
 
-		if (!err && copy_remote_memory(target, (void*)HID_PATCH1_LOC, self, &new_loc, 4) != 0)
+		if (!err && dma_copy(hid, (void*)HID_PATCH1_LOC, self, &new_loc, 4) != 0)
 		{
 			OUTPUT("patch 1 copy failed\n");
 			err = true;
 		}
 
-		if (!err && protect_remote_memory(target, (void*)(HID_PATCH2_LOC & (~0xfff)), 0x1000) != 0)
+		if (!err && dma_protect(hid, (void*)(HID_PATCH2_LOC & (~0xfff)), 0x1000) != 0)
 		{
 			OUTPUT("patch 2 prot failed\n");
 			err = true;
 		}
 
-		if (!err && copy_remote_memory(target, (void*)HID_PATCH2_LOC, self, &new_loc, 4) != 0)
+		if (!err && dma_copy(hid, (void*)HID_PATCH2_LOC, self, &new_loc, 4) != 0)
 		{
 			OUTPUT("patch 2 copy failed\n");
 			err = true;
 		}
 
-		if (!err && protect_remote_memory(target, (void*)(HID_PATCH3_LOC & (~0xfff)), 0x1000) != 0)
+		if (!err && dma_protect(hid, (void*)(HID_PATCH3_LOC & (~0xfff)), 0x1000) != 0)
 		{
 			OUTPUT("patch 3 prot failed\n");
 			err = true;
@@ -303,17 +175,17 @@ int main()
 
 		if(!err)
 		{
-			hook(HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_input, read_input_sz);
-			killCache();
+			proc_hook(hid, HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_input, read_input_sz);
+			dma_kill_cache();
 		}
-
-		svcCloseHandle(target);
-		svcCloseHandle(self);
 	}
 #ifndef NTR
 	input_loop(NULL);
 	svcExitProcess();
 #else
+	proc_close(hid);
+	proc_close(self);
+	
 	if(err)
 	{
 		printf("An error occured!\n");
