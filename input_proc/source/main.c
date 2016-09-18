@@ -122,7 +122,7 @@ int main()
 	int r = dma_copy(self, &test, hid, (void*)new_loc, 4);
 	if (r)
 	{
-		OUTPUT("copy returned %08lx\n", r);
+		OUTPUT("copy returned %08x\n", r);
 		exit(0);
 	}
 
