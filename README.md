@@ -15,6 +15,8 @@ use one of these input programs to actually get input to the ds:
 * [SDL for Linux](https://github.com/Stary2001/InputClient-SDL)
 * [XInput for Windows](https://github.com/Kazo/InputRedirectionClient)
 
+**NTR Debugger must be enabled when using NTR mode!**
+
 ## note
 buildtools requires a 1 line patch for the input redirector cia to work best:
 replace MemoryType: Application with MemoryType: Base in template.rsf line 70
