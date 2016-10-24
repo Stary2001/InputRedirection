@@ -25,7 +25,7 @@ SOURCE_DIRS := source
 EXTRA_OUTPUT_FILES :=
 
 LIBRARY_DIRS := $(DEVKITPRO)/libctru
-LIBRARIES := ctru m
+LIBRARIES := ctru m scenic
 
 BUILD_FLAGS :=
 RUN_FLAGS :=
