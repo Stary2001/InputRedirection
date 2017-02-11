@@ -1,66 +1,173 @@
-# TARGET #
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
 
-TARGET := 3DS
-LIBRARY := 0
-
-ifeq ($(TARGET),3DS)
-    ifeq ($(strip $(DEVKITPRO)),)
-        $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro")
-    endif
-
-    ifeq ($(strip $(DEVKITARM)),)
-        $(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
-    endif
+ifeq ($(strip $(DEVKITARM)),)
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
 endif
 
-# COMMON CONFIGURATION #
+TOPDIR ?= $(CURDIR)
+include $(DEVKITARM)/3ds_rules
 
-NAME := InputProc
+#---------------------------------------------------------------------------------
+# TARGET is the name of the output
+# BUILD is the directory where object files & intermediate files will be placed
+# SOURCES is a list of directories containing source code
+# DATA is a list of directories containing data files
+# INCLUDES is a list of directories containing header files
+#
+# NO_SMDH: if set to anything, no SMDH file is generated.
+# APP_TITLE is the name of the app stored in the SMDH file (Optional)
+# APP_DESCRIPTION is the description of the app stored in the SMDH file (Optional)
+# APP_AUTHOR is the author of the app stored in the SMDH file (Optional)
+# ICON is the filename of the icon (.png), relative to the project folder.
+#   If not set, it attempts to use one of the following (in this order):
+#     - <Project name>.png
+#     - icon.png
+#     - <libctru folder>/default_icon.png
+#---------------------------------------------------------------------------------
+TARGET		:=	$(notdir $(CURDIR))
+BUILD		:=	build
+SOURCES		:=	source ext/minizip
+DATA		:=	data
+INCLUDES	:=	include ext/
+APP_TITLE	:=	upd8er
+APP_DESCRIPTION := Updater for CIA/3DSX homebrew, as well as ARM9 binaries.
+APP_AUTHOR	:=	Stary
+ICON		:=	meta/icon.png
+DO_3DSX		:=	yes
 
-BUILD_DIR := build
-OUTPUT_DIR := output
-INCLUDE_DIRS := include
-SOURCE_DIRS := source
+#---------------------------------------------------------------------------------
+# options for code generation
+#---------------------------------------------------------------------------------
+ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard
 
-EXTRA_OUTPUT_FILES :=
+CFLAGS	:=	-g -Wall -Os -mword-relocations \
+			-fomit-frame-pointer -ffast-math -ffunction-sections -flto \
+			$(ARCH)
 
-LIBRARY_DIRS := $(DEVKITPRO)/libctru
-LIBRARIES := ctru m scenic
+LIBS	:= -lctru -lm -lscenic
 
-BUILD_FLAGS :=
-RUN_FLAGS :=
+CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DARM_ARCH -w
 
-# 3DS CONFIGURATION #
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -std=gnu++11 -w
 
-TITLE := $(NAME) $(TYPE)
-DESCRIPTION := Relays input for the wifi thing. Go away.
-AUTHOR := Stary
-PRODUCT_CODE := CTR-P-CINP
-UNIQUE_ID := 0x96e7f
+ASFLAGS	:=	-g $(ARCH) $(INCLUDE)
+LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map) -Wl,--gc-sections -flto $(LIBS)
 
-SYSTEM_MODE := 64MB
-SYSTEM_MODE_EXT := Legacy
+#---------------------------------------------------------------------------------
+# list of directories containing libraries, this must be the top level containing
+# include and lib
+#---------------------------------------------------------------------------------
+LIBDIRS	:= $(CTRULIB) $(PORTLIBS)
 
-ICON_FLAGS := --flags visible,ratingrequired,recordusage --cero 153 --esrb 153 --usk 153 --pegigen 153 --pegiptr 153 --pegibbfc 153 --cob 153 --grb 153 --cgsrr 153
 
-ROMFS_DIR := romfs
-BANNER_AUDIO := meta/audio.wav
-BANNER_IMAGE := meta/banner.png
-ICON := meta/icon_hbl.png
+#---------------------------------------------------------------------------------
+# no real need to edit anything past this point unless you need to add additional
+# rules for different file extensions
+#---------------------------------------------------------------------------------
+ifneq ($(BUILD),$(notdir $(CURDIR)))
+#---------------------------------------------------------------------------------
 
-#all:
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export TOPDIR	:=	$(CURDIR)
 
-# INTERNAL #
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
-include buildtools/make_base
+export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
-clean_ntr:
-	make clean BUILD_DIR=build_ntr OUTPUT_DIR=output_ntr
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
-ntr:
-	sed -i 's/MemoryType                    : Base/MemoryType                    : Application/' buildtools/3ds/template.rsf
-	make BUILD_DIR=build_ntr OUTPUT_DIR=output_ntr BUILD_FLAGS=-DNTR UNIQUE_ID=0x96e7e ICON=meta/icon_ntr.png TYPE=NTR
+#---------------------------------------------------------------------------------
+# use CXX for linking C++ projects, CC for standard C
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(CPPFILES)),)
+#---------------------------------------------------------------------------------
+	export LD	:=	$(CC)
+#---------------------------------------------------------------------------------
+else
+#---------------------------------------------------------------------------------
+	export LD	:=	$(CXX)
+#---------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------
 
-hbl:
-	sed -i 's/MemoryType                    : Application/MemoryType                    : Base/' buildtools/3ds/template.rsf
-	make TYPE=HBL
+export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+			$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+			-I$(CURDIR)/$(BUILD)
+
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
+ifeq ($(strip $(ICON)),)
+	icons := $(wildcard *.png)
+	ifneq (,$(findstring $(TARGET).png,$(icons)))
+		export APP_ICON := $(TOPDIR)/$(TARGET).png
+	else
+		ifneq (,$(findstring icon.png,$(icons)))
+			export APP_ICON := $(TOPDIR)/icon.png
+		endif
+	endif
+else
+	export APP_ICON := $(TOPDIR)/$(ICON)
+endif
+
+.PHONY: $(BUILD) clean all
+
+#---------------------------------------------------------------------------------
+all: $(BUILD)
+
+$(BUILD):
+	@echo $(SFILES)
+	@[ -d $@ ] || mkdir -p $@
+	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+#---------------------------------------------------------------------------------
+clean:
+	@echo clean ...
+	@rm -fr $(BUILD) $(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).elf $(OUTPUT).cia
+
+#---------------------------------------------------------------------------------
+send: $(BUILD)
+	3dslink -a 192.168.0.4 $(TARGET).3dsx
+
+#---------------------------------------------------------------------------------
+else
+
+DEPENDS	:=	$(OFILES:.o=.d)
+
+#---------------------------------------------------------------------------------
+# main targets
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(DO_3DSX)), yes)
+.PHONY: all
+all	:	$(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).cia
+else
+.PHONY: all
+all    :       $(OUTPUT).cia
+endif
+
+$(OUTPUT).3dsx	:	$(OUTPUT).elf
+$(OUTPUT).elf	:	$(OFILES)
+
+icon.icn: $(TOPDIR)/meta/icon.png
+	@bannertool makesmdh -i $(TOPDIR)/meta/icon.png -s $(APP_TITLE) -l $(APP_DESCRIPTION) -p $(APP_AUTHOR) -o icon.icn
+
+banner.bnr: $(TOPDIR)/meta/banner.png $(TOPDIR)/meta/audio.wav
+	@bannertool makebanner -i $(TOPDIR)/meta/banner.png -a $(TOPDIR)/meta/audio.wav -o banner.bnr
+
+$(OUTPUT).cia: $(OUTPUT).elf banner.bnr icon.icn
+	@cp $(OUTPUT).elf $(TARGET)_stripped.elf
+	@$(PREFIX)strip $(TARGET)_stripped.elf
+	@makerom -f cia -o $(OUTPUT).cia -rsf $(TOPDIR)/meta/cia.rsf -target t -exefslogo -elf $(TARGET)_stripped.elf -icon icon.icn -banner banner.bnr
+	@echo "built ... $(notdir $@)"
+
+#---------------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------------
