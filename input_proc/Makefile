@@ -131,7 +131,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).elf $(OUTPUT).cia
+	@rm -fr $(BUILD) $(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).elf $(OUTPUT)_stripped.elf $(OUTPUT).cia $(OUTPUT)_mode3.cia
 
 #---------------------------------------------------------------------------------
 send: $(BUILD)
@@ -150,7 +150,7 @@ ifeq ($(strip $(DO_3DSX)), yes)
 all	:	$(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).cia
 else
 .PHONY: all
-all    :       $(OUTPUT).cia
+all    :       $(OUTPUT).cia $(OUTPUT)_mode3.cia
 endif
 
 $(OUTPUT).3dsx	:	$(OUTPUT).elf
@@ -162,10 +162,22 @@ icon.icn: $(TOPDIR)/meta/icon.png
 banner.bnr: $(TOPDIR)/meta/banner.png $(TOPDIR)/meta/audio.wav
 	@bannertool makebanner -i $(TOPDIR)/meta/banner.png -a $(TOPDIR)/meta/audio.wav -o banner.bnr
 
-$(OUTPUT).cia: $(OUTPUT).elf banner.bnr icon.icn
-	@cp $(OUTPUT).elf $(TARGET)_stripped.elf
-	@$(PREFIX)strip $(TARGET)_stripped.elf
-	@makerom -f cia -o $(OUTPUT).cia -rsf $(TOPDIR)/meta/cia.rsf -target t -exefslogo -elf $(TARGET)_stripped.elf -icon icon.icn -banner banner.bnr
+icon_mode3.icn: $(TOPDIR)/meta/icon_mode3.png
+	@bannertool makesmdh -i $(TOPDIR)/meta/icon_mode3.png -s $(APP_TITLE) -l $(APP_DESCRIPTION) -p $(APP_AUTHOR) -o icon_mode3.icn
+
+banner_mode3.bnr: $(TOPDIR)/meta/banner_mode3.png $(TOPDIR)/meta/audio.wav
+	@bannertool makebanner -i $(TOPDIR)/meta/banner_mode3.png -a $(TOPDIR)/meta/audio.wav -o banner_mode3.bnr
+
+$(OUTPUT)_stripped.elf: $(OUTPUT).elf
+	@cp $(OUTPUT).elf $(OUTPUT)_stripped.elf
+	@$(PREFIX)strip $(OUTPUT)_stripped.elf
+
+$(OUTPUT).cia: $(OUTPUT)_stripped.elf banner.bnr icon.icn
+	@makerom -f cia -o $(OUTPUT).cia -rsf $(TOPDIR)/meta/cia.rsf -target t -exefslogo -elf $(OUTPUT)_stripped.elf -icon icon.icn -banner banner.bnr
+	@echo "built ... $(notdir $@)"
+
+$(OUTPUT)_mode3.cia: $(OUTPUT)_stripped.elf banner_mode3.bnr icon_mode3.icn
+	@makerom -f cia -o $(OUTPUT)_mode3.cia -rsf $(TOPDIR)/meta/cia_mode3.rsf -target t -exefslogo -elf $(OUTPUT)_stripped.elf -icon icon_mode3.icn -banner banner_mode3.bnr
 	@echo "built ... $(notdir $@)"
 
 #---------------------------------------------------------------------------------------

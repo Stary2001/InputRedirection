@@ -28,7 +28,6 @@
 #define HID_TS_RD_LOC 0x10df04
 #define HID_TS_WR_LOC 0x10df08
 
-scenic_process *self;
 scenic_process *hid;
 
 void read_input();
@@ -41,13 +40,12 @@ int main()
 
 	printf("injecting into hid..\n");
 
-	self = proc_open((u32)-1, 0);
 	hid = proc_open(0x10, 0);
 
 	u32 new_loc = HID_DAT_LOC;
 	u32 test = 0;
 
-	int r = dma_copy(self, &test, hid, (void*)new_loc, 4);
+	int r = dma_copy_to_self(&test, hid, (void*)new_loc, 4);
 	if (r)
 	{
 		printf("copy returned %08x\n", r);
@@ -64,7 +62,7 @@ int main()
 	else
 	{
 		u32 f = 0xffffffff;
-		r = dma_copy(hid, (void*)new_loc, self, &f, 4);
+		r = dma_copy_from_self(hid, (void*)new_loc, &f, 4);
 		if (r != 0)
 		{
 			printf("init copy failed\n");
@@ -77,7 +75,7 @@ int main()
 			err = true;
 		}
 
-		if (!err && dma_copy(hid, (void*)HID_PATCH1_LOC, self, &new_loc, 4) != 0)
+		if (!err && dma_copy_from_self(hid, (void*)HID_PATCH1_LOC, &new_loc, 4) != 0)
 		{
 			printf("patch 1 copy failed\n");
 			err = true;
@@ -89,7 +87,7 @@ int main()
 			err = true;
 		}
 
-		if (!err && dma_copy(hid, (void*)HID_PATCH2_LOC, self, &new_loc, 4) != 0)
+		if (!err && dma_copy_from_self(hid, (void*)HID_PATCH2_LOC, &new_loc, 4) != 0)
 		{
 			printf("patch 2 copy failed\n");
 			err = true;
@@ -97,13 +95,16 @@ int main()
 
 		if(!err)
 		{
-			proc_hook(hid, HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_input, read_input_sz);
+			if(!proc_hook(hid, HID_PATCH3_LOC, HID_CAVE_LOC, (u32*)&read_input, read_input_sz))
+			{
+				printf("Hook failed!\n");
+				err = true;
+			}
 			dma_kill_cache();
 		}
 	}
 
 	proc_close(hid);
-	proc_close(self);
 
 	if(err)
 	{
