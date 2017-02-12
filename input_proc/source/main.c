@@ -119,7 +119,18 @@ int main()
 		}
 	}
 
-	gfxExit();
+	printf("Press HOME, or START to exit!\n");
+	while (aptMainLoop())
+	{
+		gspWaitForVBlank();
+		hidScanInput();
+
+		u32 kDown = hidKeysDown();
+		if (kDown & KEY_START)
+			break; 
+	}
+
+	//gfxExit();
 
 	return 0;
 }

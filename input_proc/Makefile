@@ -31,11 +31,11 @@ BUILD		:=	build
 SOURCES		:=	source ext/minizip
 DATA		:=	data
 INCLUDES	:=	include ext/
-APP_TITLE	:=	upd8er
-APP_DESCRIPTION := Updater for CIA/3DSX homebrew, as well as ARM9 binaries.
+APP_TITLE	:=	InputProc
+APP_DESCRIPTION := Patches HID/IR for use with InputRedirection.
 APP_AUTHOR	:=	Stary
 ICON		:=	meta/icon.png
-DO_3DSX		:=	yes
+DO_3DSX		:=	no
 
 #---------------------------------------------------------------------------------
 # options for code generation
