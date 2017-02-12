@@ -95,19 +95,13 @@ int main()
 
 	if(err)
 	{
-		printf("An error occured! press START to exit!\n");
-		while (aptMainLoop())
-		{
-			gspWaitForVBlank();
-			hidScanInput();
-
-			u32 kDown = hidKeysDown();
-			if (kDown & KEY_START)
-				break; 
-		}
+		printf("An error occured! Press START to exit!\n");
+	}
+	else
+	{
+		printf("Press HOME for use with NTR-Mode3, or START to exit!\n");
 	}
 
-	printf("Press HOME, or START to exit!\n");
 	while (aptMainLoop())
 	{
 		gspWaitForVBlank();
