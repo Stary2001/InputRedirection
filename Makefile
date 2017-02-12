@@ -28,11 +28,11 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source ext/minizip
+SOURCES		:=	source
 DATA		:=	data
-INCLUDES	:=	include ext/
+INCLUDES	:=	include
 APP_TITLE	:=	InputProc
-APP_DESCRIPTION := Patches HID/IR for use with InputRedirection.
+APP_DESCRIPTION := "Patches HID/IR for use with InputRedirection."
 APP_AUTHOR	:=	Stary
 ICON		:=	meta/icon.png
 DO_3DSX		:=	no
