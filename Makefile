@@ -32,6 +32,7 @@ SOURCES		:=	source
 DATA		:=	data
 INCLUDES	:=	include
 APP_TITLE	:=	InputProc
+APP_TITLE_MODE3	:=	InputProc-Mode3
 APP_DESCRIPTION := "Patches HID/IR for use with InputRedirection."
 APP_AUTHOR	:=	Stary
 ICON		:=	meta/icon.png
@@ -131,7 +132,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).elf $(OUTPUT)_stripped.elf $(OUTPUT).cia $(OUTPUT)_mode3.cia
+	rm -fr $(BUILD) $(OUTPUT).3dsx $(OUTPUT).smdh $(OUTPUT).elf $(OUTPUT)_stripped.elf $(OUTPUT).cia $(OUTPUT)_mode3.cia
 
 #---------------------------------------------------------------------------------
 send: $(BUILD)
@@ -163,7 +164,7 @@ banner.bnr: $(TOPDIR)/meta/banner.png $(TOPDIR)/meta/audio.wav
 	@bannertool makebanner -i $(TOPDIR)/meta/banner.png -a $(TOPDIR)/meta/audio.wav -o banner.bnr
 
 icon_mode3.icn: $(TOPDIR)/meta/icon_mode3.png
-	@bannertool makesmdh -i $(TOPDIR)/meta/icon_mode3.png -s $(APP_TITLE) -l $(APP_DESCRIPTION) -p $(APP_AUTHOR) -o icon_mode3.icn
+	@bannertool makesmdh -i $(TOPDIR)/meta/icon_mode3.png -s $(APP_TITLE_MODE3) -l $(APP_DESCRIPTION) -p $(APP_AUTHOR) -o icon_mode3.icn
 
 banner_mode3.bnr: $(TOPDIR)/meta/banner_mode3.png $(TOPDIR)/meta/audio.wav
 	@bannertool makebanner -i $(TOPDIR)/meta/banner_mode3.png -a $(TOPDIR)/meta/audio.wav -o banner_mode3.bnr
@@ -173,11 +174,11 @@ $(OUTPUT)_stripped.elf: $(OUTPUT).elf
 	@$(PREFIX)strip $(OUTPUT)_stripped.elf
 
 $(OUTPUT).cia: $(OUTPUT)_stripped.elf banner.bnr icon.icn
-	@makerom -f cia -o $(OUTPUT).cia -rsf $(TOPDIR)/meta/cia.rsf -target t -exefslogo -elf $(OUTPUT)_stripped.elf -icon icon.icn -banner banner.bnr
+	@makerom -f cia -o $(OUTPUT).cia -rsf $(TOPDIR)/meta/cia.rsf -target t -exefslogo -elf $(OUTPUT)_stripped.elf -icon icon.icn -banner banner.bnr -ver 1040
 	@echo "built ... $(notdir $@)"
 
 $(OUTPUT)_mode3.cia: $(OUTPUT)_stripped.elf banner_mode3.bnr icon_mode3.icn
-	@makerom -f cia -o $(OUTPUT)_mode3.cia -rsf $(TOPDIR)/meta/cia_mode3.rsf -target t -exefslogo -elf $(OUTPUT)_stripped.elf -icon icon_mode3.icn -banner banner_mode3.bnr
+	@makerom -f cia -o $(OUTPUT)_mode3.cia -rsf $(TOPDIR)/meta/cia_mode3.rsf -target t -exefslogo -elf $(OUTPUT)_stripped.elf -icon icon_mode3.icn -banner banner_mode3.bnr -ver 1040
 	@echo "built ... $(notdir $@)"
 
 #---------------------------------------------------------------------------------------
