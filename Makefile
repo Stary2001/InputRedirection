@@ -32,7 +32,7 @@ SOURCES		:=	source
 DATA		:=	data
 INCLUDES	:=	include
 APP_TITLE	:=	InputProc
-APP_TITLE_MODE3	:=	InputProc-Mode3
+APP_TITLE_MODE3	:= InputProc-Mode3
 APP_DESCRIPTION := "Patches HID/IR for use with InputRedirection."
 APP_AUTHOR	:=	Stary
 ICON		:=	meta/icon.png
@@ -60,7 +60,7 @@ LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map) -Wl,--gc-sectio
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(CTRULIB) $(PORTLIBS)
+LIBDIRS	:= $(CTRULIB)
 
 
 #---------------------------------------------------------------------------------
