@@ -15,6 +15,8 @@
 #define HID_TS_RD_LOC 0x10df04
 #define HID_TS_WR_LOC 0x10df08
 
+#define	CONFIG_APPMEMTYPE ((u32*)0x1FF80030)
+
 scenic_process *hid;
 
 void read_input();
@@ -93,13 +95,20 @@ int main()
 
 	proc_close(hid);
 
+	bool is_mode3 = *CONFIG_APPMEMTYPE == 3;
+
 	if(err)
 	{
 		printf("An error occured! Press START to exit!\n");
 	}
+	else if(is_mode3)
+	{
+		printf("Press HOME, then launch an extended memory game!\n");
+	}
 	else
 	{
-		printf("Press HOME for use with NTR-Mode3, or START to exit!\n");
+		gfxExit();
+		return 0;
 	}
 
 	while (aptMainLoop())
@@ -112,7 +121,7 @@ int main()
 			break; 
 	}
 
-	//gfxExit();
+	gfxExit();
 
 	return 0;
 }
