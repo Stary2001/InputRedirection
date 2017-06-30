@@ -1,3 +1,7 @@
+# *** This has superseded by Rosalina's built in InputRedirection support as part of Luma3DS 8.0***
+## No support is offered for using this stuff.
+### pls
+
 # limitations
 i don't hook the IR service, so no zl/zr or c-stick
 
